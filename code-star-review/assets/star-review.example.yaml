@@ -1,0 +1,28 @@
+# 项目级评分配置示例。
+# 放到项目根目录并命名为 .star-review.yaml（或 .star-review.json）即自动生效。
+#
+# 注意：星级阈值（≥4.6→5 等）与内置 G0-G3 规则不可覆盖，防止纪律被配置改松。
+
+# 严格模式：5 星必须附测试证据，任何 P2 直接压到 3 星（传递给 AI 的行为约定）
+strict: true
+
+# 自定义五维权重：五维必须齐全，合计 0.9-1.1（自动归一化）
+# 示例：前端项目可提高"验证充分"，内部脚本工具可降低"安全副作用"
+weights:
+  need: 0.30
+  correct: 0.25
+  security: 0.15
+  maint: 0.15
+  verify: 0.15
+
+# 自定义 Gate：改动文件路径命中 glob 模式时，星级封顶
+gates:
+  - path: "migrations/*"
+    cap: 2
+    reason: "migration 变更须人工复核，禁止自动直接合并"
+  - path: "infra/*"
+    cap: 3
+    reason: "基础设施变更须附回滚方案"
+  - path: "public-api/**"
+    cap: 3
+    reason: "公共 API 变更必须同步文档并检查调用方"
