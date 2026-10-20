@@ -1,0 +1,51 @@
+# GitHub Actions CI 门禁示例：PR 上自动评分，低于阈值使检查失败。
+# 放置：.github/workflows/score-review.yml
+# 前提：AI 评审流程先把五维分数写入 .star-review-last.json（{"need":4,"correct":3,...}），
+#      或通过 workflow_dispatch inputs 传入。此处演示从 JSON 读取。
+
+name: code-star-review
+
+on: [pull_request]
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: 读取最近一轮 AI 评分
+        id: read
+        run: |
+          python - <<'EOF'
+          import json
+          import os
+          with open(".star-review-last.json", encoding="utf-8") as fh:
+              s = json.load(fh)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              for k in ("need", "correct", "security", "maint", "verify"):
+                  out.write(f"{k}={s[k]}\n")
+          EOF
+
+      - name: 评分门禁（低于 4★ 拦截）
+        run: |
+          python code-star-review/scripts/score.py \
+            --need ${{ steps.read.outputs.need }} \
+            --correct ${{ steps.read.outputs.correct }} \
+            --security ${{ steps.read.outputs.security }} \
+            --maint ${{ steps.read.outputs.maint }} \
+            --verify ${{ steps.read.outputs.verify }} \
+            --diff . \
+            --min-stars 4 \
+            --json > scorecard.json
+
+      - name: 上传评分卡
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecard
+          path: scorecard.json
